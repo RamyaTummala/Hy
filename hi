@@ -1,68 +1,86 @@
 package com.anthem.pdt.common.batch.processor;
- 
-import java.util.ArrayList;
-import java.util.List;
- 
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Organization;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import org.hl7.fhir.r4.model.*;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
- 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.anthem.pdt.common.Repo.PdtRepo;
 import com.anthem.pdt.common.batch.PdtItemService;
 import com.anthem.pdt.common.batch.dto.OrganisationPdt;
- 
-@Configuration
-public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPdt, Organization>{
 
-	private static Logger logger = LoggerFactory.getLogger(CustomOrganisationProcessor.class);
-	@Autowired
-	private PdtRepo pdtRepo;
-	@Autowired
-	private PdtItemService pdtItemService;
-	
-	private final JdbcTemplate jdbcTemplate;
-	
-	public CustomOrganisationProcessor(JdbcTemplate jdbcTemplate) {
+import java.util.ArrayList;
+import java.util.List;
+
+@Configuration
+public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPdt, Organization> {
+
+    private static final Logger logger = LoggerFactory.getLogger(CustomOrganisationProcessor.class);
+
+    private final JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    public CustomOrganisationProcessor(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
-	  
-	  @Autowired
-		private RowMapper<OrganisationPdt> mapper;
 
-	@Override
-	public Organization process(OrganisationPdt org) throws Exception {
-		//logger.info("processing organisation with id: {}",org.getMasterProvId());
-		
-		Organization organisation=new Organization();
-		 organisation.setId(org.getProviderResourceId());
-		Meta meta = new Meta();
-		List<CanonicalType> profile = new ArrayList<>();
-		Identifier id = new Identifier();
-		List<Identifier> listOfIdentifier = new ArrayList<>();
-		CanonicalType ctype = new CanonicalType(
-				"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission");
-		profile.add(ctype);
-		meta.setProfile(profile);
-		organisation.setMeta(meta);
-		List<CodeableConcept> identifierList = new ArrayList<>();
-		 CodeableConcept mstrprovIdentifier = new CodeableConcept();
-		   organisation.setId(org.getProviderNpi());
-		   organisation.setId(org.getMasterProvId());
-		   organisation.setName(org.getProviderOrganisationName());
-		   organisation.setId(org.getProviderOrgFedTaxId());
-		    return organisation;
-		
-	}
+    @Autowired
+    private RowMapper<OrganisationPdt> mapper;
+
+    @Override
+    public Organization process(OrganisationPdt org) throws Exception {
+        Organization organization = new Organization();
+
+        // Set the ID for the Organization
+        organization.setId(org.getProviderResourceId());
+
+        // Create and set Meta information
+        Meta meta = new Meta();
+        CanonicalType canonicalType = new CanonicalType("http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission");
+        meta.addProfile(canonicalType);
+        organization.setMeta(meta);
+
+        // Create and set Identifiers
+        List<Identifier> identifiers = new ArrayList<>();
+
+        // Provider Number (PRN)
+        Identifier prnIdentifier = new Identifier();
+        Coding prnCoding = new Coding();
+        prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+        prnCoding.setCode("PRN");
+        prnCoding.setDisplay("Provider number");
+        prnIdentifier.setType(new CodeableConcept().addCoding(prnCoding));
+        prnIdentifier.setValue(org.getProviderNpi()); // Assuming NPI is used here as value
+        identifiers.add(prnIdentifier);
+
+        // National Provider Identifier (NPI)
+        Identifier npiIdentifier = new Identifier();
+        Coding npiCoding = new Coding();
+        npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+        npiCoding.setCode("NPI");
+        npiCoding.setDisplay("National provider identifier");
+        npiIdentifier.setType(new CodeableConcept().addCoding(npiCoding));
+        npiIdentifier.setValue(org.getProviderNpi()); // Assuming NPI is used here as value
+        identifiers.add(npiIdentifier);
+
+        // Tax ID Number (TAX)
+        Identifier taxIdentifier = new Identifier();
+        Coding taxCoding = new Coding();
+        taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+        taxCoding.setCode("TAX");
+        taxCoding.setDisplay("Tax ID number");
+        taxIdentifier.setType(new CodeableConcept().addCoding(taxCoding));
+        taxIdentifier.setValue(org.getProviderOrgFedTaxId());
+        identifiers.add(taxIdentifier);
+
+        organization.setIdentifier(identifiers);
+
+        // Set Organization Name
+        organization.setName(org.getProviderOrganisationName());
+
+        return organization;
+    }
 }
-
-

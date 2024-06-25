@@ -6,94 +6,6 @@ import java.util.List;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Organization;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
- 
-import com.anthem.pdt.common.Repo.PdtRepo;
-import com.anthem.pdt.common.batch.PdtItemService;
-import com.anthem.pdt.common.batch.dto.OrganisationPdt;
- 
-@Configuration
-public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPdt, Organization>{
-
-	private static Logger logger = LoggerFactory.getLogger(CustomOrganisationProcessor.class);
-	@Autowired
-	private PdtRepo pdtRepo;
-	@Autowired
-	private PdtItemService pdtItemService;
-	
-	private final JdbcTemplate jdbcTemplate;
-	
-	public CustomOrganisationProcessor(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
-	  
-	  @Autowired
-		private RowMapper<OrganisationPdt> mapper;
-
-	@Override
-	public Organization process(OrganisationPdt org) throws Exception {
-		
-		Organization organisation=new Organization();
-		organisation.setId(org.getMasterProvId());
-		Meta meta = new Meta();
-		List<CanonicalType> profile = new ArrayList<>();
-		CanonicalType ctype = new CanonicalType(
-				"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission");
-		profile.add(ctype);
-		meta.setProfile(profile);
-		organisation.setMeta(meta);
-		List<CodeableConcept> identifierList = new ArrayList<>();
-		 CodeableConcept mstrprovIdentifier = new CodeableConcept();
-		    Coding prnCoding = new Coding();
-		    prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-		    prnCoding.setCode("PRN");
-		    prnCoding.setDisplay("Provider number");
-		    mstrprovIdentifier.addCoding(prnCoding);
-		    mstrprovIdentifier.setText(org.getMasterProvId());
-		    identifierList.add(mstrprovIdentifier);
-		    
-		    CodeableConcept npiIdentifier = new CodeableConcept();
-		    Coding npiCoding = new Coding();
-		    npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-		    npiCoding.setCode("NPI");
-		    npiCoding.setDisplay("National provider identifier");
-		    npiIdentifier.addCoding(npiCoding);
-		    npiIdentifier.setText(org.getProviderNpi());
-		    identifierList.add(npiIdentifier);
-		    
-		    CodeableConcept taxIdentifier = new CodeableConcept();
-		    Coding taxCoding = new Coding();
-		    taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-		    taxCoding.setCode("TAX");
-		    taxCoding.setDisplay("Tax ID number");
-		    taxIdentifier.addCoding(taxCoding);
-		    taxIdentifier.setText(org.getProviderOrgFedTaxId());
-		    identifierList.add(taxIdentifier);
-
-		    organisation.setIdentifier(identifierList);
-		    
-		    organisation.setName(org.getProviderOrganisationName());
-		    
-		    return organisation;
-		
-	}
-}
-
-
-import java.util.ArrayList;
-import java.util.List;
- 
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Organization;
@@ -142,3 +54,49 @@ public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPd
 		profile.add(ctype);
 		meta.setProfile(profile);
 		organisation.setMeta(meta);
+		List<CodeableConcept> identifierList = new ArrayList<>();
+		 CodeableConcept mstrprovIdentifier = new CodeableConcept();
+		    Coding prnCoding = new Coding();
+		    prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+		    prnCoding.setCode("PRN");
+		    prnCoding.setDisplay("Provider number");
+		    mstrprovIdentifier.addCoding(prnCoding);
+		    mstrprovIdentifier.setText(org.getMasterProvId());
+		    identifierList.add(mstrprovIdentifier);
+		    id.setType(mstrprovIdentifier);
+		    listOfIdentifier.add(id);
+		    logger.debug("added info:",prnCoding);
+//		    CodeableConcept npiIdentifier = new CodeableConcept();
+//		    Coding npiCoding = new Coding();
+//		    npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+//		    npiCoding.setCode("NPI");
+//		    npiCoding.setDisplay("National provider identifier");
+//		    npiIdentifier.addCoding(npiCoding);
+//		    npiIdentifier.setText(org.getProviderNpi());
+//		    identifierList.add(npiIdentifier);
+//		    
+//		    CodeableConcept taxIdentifier = new CodeableConcept();
+//		    Coding taxCoding = new Coding();
+//		    taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
+//		    taxCoding.setCode("TAX");
+//		    taxCoding.setDisplay("Tax ID number");
+//		    taxIdentifier.addCoding(taxCoding);
+//		    taxIdentifier.setText(org.getProviderOrgFedTaxId());
+//		    identifierList.add(taxIdentifier);
+
+		    organisation.setIdentifier(listOfIdentifier);
+		    
+		    organisation.setName(org.getProviderOrganisationName());
+		    
+		    logger.debug("constructed organisation object : {}",organisation);
+		    
+		    //logger.info("org value -------"+organisation.toString());
+		    
+		    System.out.println("hi"+id.getType());
+		    
+		    return organisation;
+		
+	}
+}
+
+

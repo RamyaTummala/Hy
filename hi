@@ -1,0 +1,242 @@
+{
+	"resourceType": "Bundle",
+	"type": "batch",
+	"id": "040-c86d289aa56c43a4be7ae134d3fdeb91-OrgBundle",
+	"entry": [
+		{
+			"fullUrl": "http://bpd.bcbs.com/Organization/040-96c31dead83898c56ad8e66e4f1c641c-ProviderOrganiz",
+			"resource": {
+				"resourceType": "Organization",
+				"id": "040-96c31dead83898c56ad8e66e4f1c641c-ProviderOrganiz",
+				"meta": {
+					"profile": [
+						"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission"
+					]
+				},
+				"identifier": [
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "PRN",
+									"display": "Provider number"
+								}
+							]
+						},
+						"value": "1100963721"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "NPI",
+									"display": "National provider identifier"
+								}
+							]
+						},
+						"value": "1912928169"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "TAX",
+									"display": "Tax ID number"
+								}
+							]
+						},
+						"value": "061539549"
+					}
+				],
+				"name": "Collins Medical Associates 2 PC"
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Organization/040-96c31dead83898c56ad8e66e4f1c641c-ProviderOrganiz"
+			}
+		},
+		{
+			"fullUrl": "http://bpd.bcbs.com/Organization/040-8d217c44deca6f897e0b9a47ceb3e9f1-ProviderOrganiz",
+			"resource": {
+				"resourceType": "Organization",
+				"id": "040-8d217c44deca6f897e0b9a47ceb3e9f1-ProviderOrganiz",
+				"meta": {
+					"profile": [
+						"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission"
+					]
+				},
+				"identifier": [
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "PRN",
+									"display": "Provider number"
+								}
+							]
+						},
+						"value": "1103341865"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "NPI",
+									"display": "National provider identifier"
+								}
+							]
+						},
+						"value": "1841571874"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "TAX",
+									"display": "Tax ID number"
+								}
+							]
+						},
+						"value": "452923634"
+					}
+				],
+				"name": "Ping Ouyang Acupuncture"
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Organization/040-8d217c44deca6f897e0b9a47ceb3e9f1-ProviderOrganiz"
+			}
+		},
+		{
+			"fullUrl": "http://bpd.bcbs.com/Organization/040-9fc65e60f295dbe840e19d1f3aa68d74-ProviderOrganiz",
+			"resource": {
+				"resourceType": "Organization",
+				"id": "040-9fc65e60f295dbe840e19d1f3aa68d74-ProviderOrganiz",
+				"meta": {
+					"profile": [
+						"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission"
+					]
+				},
+				"identifier": [
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "PRN",
+									"display": "Provider number"
+								}
+							]
+						},
+						"value": "1103628466"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://bpd.bcbs.com/CodeSystem/BCBSIdentifierTypeCS",
+									"code": "PCRN",
+									"display": "Provider Cross Reference Number"
+								}
+							]
+						},
+						"value": "462791677",
+						"period": {
+							"end": "2023-05-18"
+						}
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "NPI",
+									"display": "National provider identifier"
+								}
+							]
+						},
+						"value": "1154760239"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "TAX",
+									"display": "Tax ID number"
+								}
+							]
+						},
+						"value": "462791677"
+					}
+				],
+				"name": "Harman John D"
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Organization/040-9fc65e60f295dbe840e19d1f3aa68d74-ProviderOrganiz"
+			}
+		},
+		{
+			"fullUrl": "http://bpd.bcbs.com/Organization/040-4f899a9bb7817f9b8c7e3ee437fe1227-ProviderOrganiz",
+			"resource": {
+				"resourceType": "Organization",
+				"id": "040-4f899a9bb7817f9b8c7e3ee437fe1227-ProviderOrganiz",
+				"meta": {
+					"profile": [
+						"http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission"
+					]
+				},
+				"identifier": [
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "PRN",
+									"display": "Provider number"
+								}
+							]
+						},
+						"value": "1100944868"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "NPI",
+									"display": "National provider identifier"
+								}
+							]
+						},
+						"value": "1043640204"
+					},
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+									"code": "TAX",
+									"display": "Tax ID number"
+								}
+							]
+						},
+						"value": "463717586"
+					}
+				],
+				"name": "Bluewater Emergency Partners of Brunswick"
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Organization/040-4f899a9bb7817f9b8c7e3ee437fe1227-ProviderOrganiz"
+			}
+		}
+	]
+}

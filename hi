@@ -43,38 +43,38 @@ public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPd
         meta.addProfile(canonicalType);
         organization.setMeta(meta);
 
-        // Create and set Identifiers
-        List<Identifier> identifiers = new ArrayList<>();
+        // Create and set Identifiers using CodeableConcept
+        List<CodeableConcept> identifiers = new ArrayList<>();
 
         // Provider Number (PRN)
-        Identifier prnIdentifier = new Identifier();
         Coding prnCoding = new Coding();
         prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
         prnCoding.setCode("PRN");
         prnCoding.setDisplay("Provider number");
-        prnIdentifier.setType(new CodeableConcept().addCoding(prnCoding));
-        prnIdentifier.setValue(org.getProviderNpi()); // Assuming NPI is used here as value
-        identifiers.add(prnIdentifier);
+        CodeableConcept prnConcept = new CodeableConcept();
+        prnConcept.addCoding(prnCoding);
+        prnConcept.setText(org.getProviderNpi()); // Assuming NPI is used here as value
+        identifiers.add(prnConcept);
 
         // National Provider Identifier (NPI)
-        Identifier npiIdentifier = new Identifier();
         Coding npiCoding = new Coding();
         npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
         npiCoding.setCode("NPI");
         npiCoding.setDisplay("National provider identifier");
-        npiIdentifier.setType(new CodeableConcept().addCoding(npiCoding));
-        npiIdentifier.setValue(org.getProviderNpi()); // Assuming NPI is used here as value
-        identifiers.add(npiIdentifier);
+        CodeableConcept npiConcept = new CodeableConcept();
+        npiConcept.addCoding(npiCoding);
+        npiConcept.setText(org.getProviderNpi()); // Assuming NPI is used here as value
+        identifiers.add(npiConcept);
 
         // Tax ID Number (TAX)
-        Identifier taxIdentifier = new Identifier();
         Coding taxCoding = new Coding();
         taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
         taxCoding.setCode("TAX");
         taxCoding.setDisplay("Tax ID number");
-        taxIdentifier.setType(new CodeableConcept().addCoding(taxCoding));
-        taxIdentifier.setValue(org.getProviderOrgFedTaxId());
-        identifiers.add(taxIdentifier);
+        CodeableConcept taxConcept = new CodeableConcept();
+        taxConcept.addCoding(taxCoding);
+        taxConcept.setText(org.getProviderOrgFedTaxId());
+        identifiers.add(taxConcept);
 
         organization.setIdentifier(identifiers);
 

@@ -76,6 +76,7 @@ public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPd
         taxConcept.setText(org.getProviderOrgFedTaxId());
         identifiers.add(taxConcept);
 
+        // Set Identifiers in the Organization
         organization.setIdentifier(identifiers);
 
         // Set Organization Name

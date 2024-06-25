@@ -44,7 +44,7 @@ public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPd
 		//logger.info("processing organisation with id: {}",org.getMasterProvId());
 		
 		Organization organisation=new Organization();
-		organisation.setId(org.getMasterProvId());
+		 organisation.setId(org.getProviderResourceId());
 		Meta meta = new Meta();
 		List<CanonicalType> profile = new ArrayList<>();
 		Identifier id = new Identifier();
@@ -56,44 +56,10 @@ public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPd
 		organisation.setMeta(meta);
 		List<CodeableConcept> identifierList = new ArrayList<>();
 		 CodeableConcept mstrprovIdentifier = new CodeableConcept();
-		    Coding prnCoding = new Coding();
-		    prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-		    prnCoding.setCode("PRN");
-		    prnCoding.setDisplay("Provider number");
-		    mstrprovIdentifier.addCoding(prnCoding);
-		    mstrprovIdentifier.setText(org.getMasterProvId());
-		    identifierList.add(mstrprovIdentifier);
-		    id.setType(mstrprovIdentifier);
-		    listOfIdentifier.add(id);
-		    logger.debug("added info:",prnCoding);
-//		    CodeableConcept npiIdentifier = new CodeableConcept();
-//		    Coding npiCoding = new Coding();
-//		    npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-//		    npiCoding.setCode("NPI");
-//		    npiCoding.setDisplay("National provider identifier");
-//		    npiIdentifier.addCoding(npiCoding);
-//		    npiIdentifier.setText(org.getProviderNpi());
-//		    identifierList.add(npiIdentifier);
-//		    
-//		    CodeableConcept taxIdentifier = new CodeableConcept();
-//		    Coding taxCoding = new Coding();
-//		    taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-//		    taxCoding.setCode("TAX");
-//		    taxCoding.setDisplay("Tax ID number");
-//		    taxIdentifier.addCoding(taxCoding);
-//		    taxIdentifier.setText(org.getProviderOrgFedTaxId());
-//		    identifierList.add(taxIdentifier);
-
-		    organisation.setIdentifier(listOfIdentifier);
-		    
-		    organisation.setName(org.getProviderOrganisationName());
-		    
-		    logger.debug("constructed organisation object : {}",organisation);
-		    
-		    //logger.info("org value -------"+organisation.toString());
-		    
-		    System.out.println("hi"+id.getType());
-		    
+		   organisation.setId(org.getProviderNpi());
+		   organisation.setId(org.getMasterProvId());
+		   organisation.setName(org.getProviderOrganisationName());
+		   organisation.setId(org.getProviderOrgFedTaxId());
 		    return organisation;
 		
 	}

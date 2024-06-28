@@ -61,6 +61,71 @@ else if ((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue())) 
         pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT, Constants.Status_OrgFailed, new Date(), filteredLctnIds);
     }
 }
+
+
+else if ((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue())) {
+    FhirContext ctx = FhirContext.forR4();
+    OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class, responseEntityStr.getBody());
+    List<String> errorResourceIds = new ArrayList<>();
+    
+    for (OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+        FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+        
+        String diagnostics = issue.getDiagnostics();
+        String rscIds = null;
+        
+        // Extract resource ID from diagnostics if available
+        int startIndex = diagnostics.indexOf("040");
+        int endIndex = diagnostics.indexOf("-ProviderOrganiz");
+        if (startIndex != -1 && endIndex != -1) {
+            rscIds = diagnostics.substring(startIndex, endIndex + 15); // Assuming "-ProviderOrganiz" is 15 characters long
+            errorResourceIds.add(rscIds);
+        }
+        
+        // If diagnostics did not contain the resource ID, try to extract from location
+        if (rscIds == null && !issue.getLocation().isEmpty()) {
+            String location = issue.getLocation().get(0).getValue();
+            int secondBackSlashIndex = location.lastIndexOf('/');
+            rscIds = location.substring(secondBackSlashIndex + 1);
+            errorResourceIds.add(rscIds);
+        }
+        
+        // Set error details
+        bundleError.setAnthemBundleId(bundleId);
+        bundleError.setBcbsaBundleId(Constants.NA);
+        bundleError.setProviderResourseId(Constants.NA);
+        bundleError.setErrorResourseId(rscIds != null ? rscIds : Constants.NA); // Default to Constants.NA if rscIds is still null
+        bundleError.setErrorResourseType("Organization");
+        bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+        bundleError.setBundleErrorResourseStatusCode(Constants.status_422);
+        bundleError.setErrorResponseJson(responseEntityStr.getBody());
+        bundleError.setBundleErrorResponseReasonDesc(diagnostics);
+        bundleError.setBundleRequestJson(jsonMainData);
+        bundleError.setBundleErrorResponseDetail(Constants.NA);
+        bundleError.setBundleSubmissionDtm(currentTimeStamp);
+        bundleError.setErrorRtrvlDtm(currentTimeStamp);
+        bundleError.setCrtcUserId(Constants.USER_ID);
+        bundleError.setUpdtUserId(Constants.USER_ID);
+        bundleError.setClvrlfLoadId(bundleError.hashCode());
+        bundleErrorResponseList.add(bundleError);
+    }
+    
+    // Update records based on errorResourceIds
+    if (!CollectionUtils.isEmpty(errorResourceIds) && !CollectionUtils.isEmpty(bundleErrorResponseList)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_FAILED, Constants.Status_OrgFailed, new Date(), errorResourceIds);
+        pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+        logger.error(bundleErrorResponseList + " Error data saved successfully for bundle Id " + bundleId);
+    }
+    
+    // Update other records
+    List<String> filteredLctnIds = organisationIds.stream().filter(id -> !errorResourceIds.contains(id)).collect(Collectors.toList());
+    if (!CollectionUtils.isEmpty(filteredLctnIds)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT, Constants.Status_OrgFailed, new Date(), filteredLctnIds);
+    }
+}
+
+
+
 {
   "resourceType": "OperationOutcome",
   "issue": [

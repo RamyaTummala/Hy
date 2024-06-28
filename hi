@@ -1,87 +1,155 @@
-package com.anthem.pdt.common.batch.processor;
-
-import org.hl7.fhir.r4.model.*;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.anthem.pdt.common.Repo.PdtRepo;
-import com.anthem.pdt.common.batch.PdtItemService;
-import com.anthem.pdt.common.batch.dto.OrganisationPdt;
-
-import java.util.ArrayList;
-import java.util.List;
-
-@Configuration
-public class CustomOrganisationProcessor implements ItemProcessor<OrganisationPdt, Organization> {
-
-    private static final Logger logger = LoggerFactory.getLogger(CustomOrganisationProcessor.class);
-
-    private final JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    public CustomOrganisationProcessor(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+{
+  "resourceType": "OperationOutcome",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "invalid",
+      "diagnostics": "Resource Organization/040-1b1fab4ad98b7b01dd05adea6af8399d-ProviderOrganiz, The value of National Provider Identifier (identifier[NPI].value) must correspond to a valid active value within the NPPES data for NPI Type 2 - Organization or for NPI Type 1 - Individual with Sole Proprietorship indicator  = Yes.",
+      "location": [
+        "Bundle.entry[20].resource.ofType(Organization)"
+      ]
     }
+  ]
+}
 
-    @Autowired
-    private RowMapper<OrganisationPdt> mapper;
 
-    @Override
-    public Organization process(OrganisationPdt org) throws Exception {
-        Organization organization = new Organization();
-
-        // Set the ID for the Organization
-        organization.setId(org.getProviderResourceId());
-
-        // Create and set Meta information
-        Meta meta = new Meta();
-        CanonicalType canonicalType = new CanonicalType("http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission");
-        meta.addProfile(canonicalType);
-        organization.setMeta(meta);
-
-        // Create and set Identifiers using CodeableConcept
-        List<CodeableConcept> identifiers = new ArrayList<>();
-
-        // Provider Number (PRN)
-        Coding prnCoding = new Coding();
-        prnCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-        prnCoding.setCode("PRN");
-        prnCoding.setDisplay("Provider number");
-        CodeableConcept prnConcept = new CodeableConcept();
-        prnConcept.addCoding(prnCoding);
-        prnConcept.setText(org.getProviderNpi()); // Assuming NPI is used here as value
-        identifiers.add(prnConcept);
-
-        // National Provider Identifier (NPI)
-        Coding npiCoding = new Coding();
-        npiCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-        npiCoding.setCode("NPI");
-        npiCoding.setDisplay("National provider identifier");
-        CodeableConcept npiConcept = new CodeableConcept();
-        npiConcept.addCoding(npiCoding);
-        npiConcept.setText(org.getProviderNpi()); // Assuming NPI is used here as value
-        identifiers.add(npiConcept);
-
-        // Tax ID Number (TAX)
-        Coding taxCoding = new Coding();
-        taxCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0203");
-        taxCoding.setCode("TAX");
-        taxCoding.setDisplay("Tax ID number");
-        CodeableConcept taxConcept = new CodeableConcept();
-        taxConcept.addCoding(taxCoding);
-        taxConcept.setText(org.getProviderOrgFedTaxId());
-        identifiers.add(taxConcept);
-
-        // Set Identifiers in the Organization
-        organization.setIdentifier(identifiers);
-
-        // Set Organization Name
-        organization.setName(org.getProviderOrganisationName());
-
-        return organization;
+{
+  "resourceType": "OperationOutcome",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "invalid",
+      "diagnostics": "Resource Organization/040-9d5aae18ef831d75e7e95682542b5196-ProviderOrganiz, The value of National Provider Identifier (identifier[NPI].value) must correspond to a valid active value within the NPPES data for NPI Type 2 - Organization or for NPI Type 1 - Individual with Sole Proprietorship indicator  = Yes.",
+      "location": [
+        "Bundle.entry[2].resource.ofType(Organization)"
+      ]
     }
+  ]
+}
+
+
+{
+  "resourceType": "OperationOutcome",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "invalid",
+      "diagnostics": "Resource Organization/040-e92a21c22a8ec6d1be9a66002bce508a-ProviderOrganiz, The value of National Provider Identifier (identifier[NPI].value) must correspond to a valid active value within the NPPES data for NPI Type 2 - Organization or for NPI Type 1 - Individual with Sole Proprietorship indicator  = Yes.",
+      "location": [
+        "Bundle.entry[21].resource.ofType(Organization)"
+      ]
+    }
+  ]
+}
+
+
+
+
+else if((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue()))
+				{
+					FhirContext ctx = FhirContext.forR4();
+					OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class,responseEntityStr.getBody()); 
+					List<String> errorResourceIds = new ArrayList<>();
+					for(OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+						FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+						String diagnostics = issue.getDiagnostics();
+						int diagnosticsparseIndex = diagnostics.indexOf('(');
+						String diagnosticsSubString = (diagnosticsparseIndex != -1) ?diagnostics.substring(0,diagnosticsparseIndex):diagnostics;
+						String rscIds = null;
+						if(!issue.getLocation().isEmpty()) {
+						String location = issue.getLocation().get(0).getValue();
+						int fisrtBackLashIndex = location.indexOf('/');
+						int secondBackLashIndex = location.indexOf('/',fisrtBackLashIndex+1);
+						int endIndex = location.indexOf("*",secondBackLashIndex+1);
+						rscIds = location.substring(secondBackLashIndex+1,endIndex);
+						errorResourceIds.add(rscIds);
+						}
+						bundleError.setAnthemBundleId(bundleId);
+						bundleError.setBcbsaBundleId(Constants.NA);
+						bundleError.setProviderResourseId(Constants.NA);
+						bundleError.setErrorResourseId(rscIds); 
+						bundleError.setErrorResourseType("Organization");
+						bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+						bundleError.setBundleErrorResourseStatusCode(Constants.status_422);
+						bundleError.setErrorResponseJson(responseEntityStr.getBody());
+						bundleError.setBundleErrorResponseReasonDesc(diagnosticsSubString); 
+						bundleError.setBundleRequestJson(jsonMainData);
+						bundleError.setBundleErrorResponseDetail(Constants.NA);
+						bundleError.setBundleSubmissionDtm(currentTimeStamp);
+						bundleError.setErrorRtrvlDtm(currentTimeStamp);
+						bundleError.setCrtcUserId(Constants.USER_ID);
+						bundleError.setUpdtUserId(Constants.USER_ID);
+						bundleError.setClvrlfLoadId(bundleError.hashCode());
+						bundleErrorResponseList.add(bundleError);
+					}
+					if(!CollectionUtils.isEmpty(errorResourceIds)&&!CollectionUtils.isEmpty(bundleErrorResponseList) ) {
+						pdtItemService.updateAllorgRecordStatus(Constants.STATUS_FAILED,Constants.
+								Status_OrgFailed
+								, new Date(), errorResourceIds);
+						pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+						logger.error(bundleErrorResponseList + "Error data saved successfully for bundle Id " + bundleId);
+						}
+					List<String> filteredLctnIds = organisationIds.stream().filter(id->!errorResourceIds.contains(id)).collect(Collectors.toList());
+					if(!CollectionUtils.isEmpty(filteredLctnIds)) {
+						pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT,Constants.
+								Status_OrgFailed, new Date(), filteredLctnIds);
+					}
+						
+				}
+
+
+{
+  "resourceType": "OperationOutcome",
+  "issue": [
+    {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+          "valueInteger": 1
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+          "valueInteger": 33168
+        }
+      ],
+      "severity": "error",
+      "code": "processing",
+      "diagnostics": "Rule organization-npi-1: 'The value of identifier[NPI].value (National Provider Identifier) must contain 10 numeric characters.' Failed",
+      "location": [
+        "Bundle.entry[36].resource/*Organization/040-d56ecd05e89b0b8209e8d471d6bc3ca3-ProviderOrganiz*/",
+        "Line[1] Col[33168]"
+      ]
+    },
+    {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-line",
+          "valueInteger": 1
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-issue-col",
+          "valueInteger": 32992
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/operationoutcome-message-id",
+          "valueString": "Validation_VAL_Profile_Minimum"
+        }
+      ],
+      "severity": "error",
+      "code": "processing",
+      "details": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/java-core-messageId",
+            "code": "Validation_VAL_Profile_Minimum"
+          }
+        ]
+      },
+      "diagnostics": "Organization.identifier.value: minimum required = 1, but only found 0 (from http://bpd.bcbs.com/StructureDefinition/bpd-organization-provider-plan-submission|3.4.0.2)",
+      "location": [
+        "Bundle.entry[36].resource/*Organization/040-d56ecd05e89b0b8209e8d471d6bc3ca3-ProviderOrganiz*/.identifier[1]",
+        "Line[1] Col[32992]"
+      ]
+    }
+  ]
 }

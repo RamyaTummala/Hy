@@ -414,3 +414,69 @@ else if (Constants.StatusCode422 == responseEntityStr.getStatusCodeValue()) {
         // Optionally, rethrow or handle the exception based on your application's error handling strategy
     }
 }
+
+
+
+
+
+else if (Constants.StatusCode422 == responseEntityStr.getStatusCodeValue()) {
+    FhirContext ctx = FhirContext.forR4();
+    OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class, responseEntityStr.getBody());
+    List<String> errorResourceIds = new ArrayList<>();
+    
+    for (OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+        FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+        
+        // Extract resource ID from diagnostics field if available
+        String diagnostics = issue.getDiagnostics();
+        int resourceIdIndex = diagnostics.indexOf("Resource ");
+        if (resourceIdIndex != -1) {
+            int endIndex = diagnostics.indexOf("-", resourceIdIndex);
+            if (endIndex != -1) {
+                String rscIds = diagnostics.substring(resourceIdIndex + 10, endIndex);
+                errorResourceIds.add(rscIds);
+                bundleError.setErrorResourseId(rscIds);
+            }
+        }
+        
+        // If diagnostics logic didn't find a resource ID, try extracting from location field
+        if (errorResourceIds.isEmpty() && !issue.getLocation().isEmpty()) {
+            String location = issue.getLocation().get(0).getValue();
+            int secondBackSlashIndex = location.lastIndexOf('/');
+            String rscIds = location.substring(secondBackSlashIndex + 1);
+            errorResourceIds.add(rscIds);
+            bundleError.setErrorResourseId(rscIds);
+        }
+        
+        // Set other error details
+        bundleError.setAnthemBundleId(bundleId);
+        bundleError.setBcbsaBundleId(Constants.NA);
+        bundleError.setProviderResourseId(Constants.NA);
+        bundleError.setErrorResourseType("Organization");
+        bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+        bundleError.setBundleErrorResourseStatusCode(Constants.status_422);
+        bundleError.setErrorResponseJson(responseEntityStr.getBody());
+        bundleError.setBundleErrorResponseReasonDesc(issue.getDiagnostics());
+        bundleError.setBundleRequestJson(jsonMainData);
+        bundleError.setBundleErrorResponseDetail(Constants.NA);
+        bundleError.setBundleSubmissionDtm(currentTimeStamp);
+        bundleError.setErrorRtrvlDtm(currentTimeStamp);
+        bundleError.setCrtcUserId(Constants.USER_ID);
+        bundleError.setUpdtUserId(Constants.USER_ID);
+        bundleError.setClvrlfLoadId(bundleError.hashCode());
+        bundleErrorResponseList.add(bundleError);
+    }
+    
+    // Update records based on errorResourceIds
+    if (!CollectionUtils.isEmpty(errorResourceIds) && !CollectionUtils.isEmpty(bundleErrorResponseList)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_FAILED, Constants.Status_OrgFailed, new Date(), errorResourceIds);
+        pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+        logger.error("Error data saved successfully for bundle Id " + bundleId);
+    }
+    
+    // Update other records based on filteredLctnIds
+    List<String> filteredLctnIds = organisationIds.stream().filter(id -> !errorResourceIds.contains(id)).collect(Collectors.toList());
+    if (!CollectionUtils.isEmpty(filteredLctnIds)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT, Constants.Status_OrgFailed, new Date(), filteredLctnIds);
+    }
+}

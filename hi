@@ -480,3 +480,74 @@ else if (Constants.StatusCode422 == responseEntityStr.getStatusCodeValue()) {
         pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT, Constants.Status_OrgFailed, new Date(), filteredLctnIds);
     }
 }
+else if (Constants.StatusCode422 == responseEntityStr.getStatusCodeValue()) {
+    FhirContext ctx = FhirContext.forR4();
+    OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class, responseEntityStr.getBody());
+    List<String> errorResourceIds = new ArrayList<>();
+    
+    for (OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+        FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+        
+        // Extract resource ID from diagnostics field if available
+        String diagnostics = issue.getDiagnostics();
+        int resourceIdIndex = diagnostics.indexOf("Resource ");
+        if (resourceIdIndex != -1) {
+            int endIndex = diagnostics.indexOf("-", resourceIdIndex);
+            if (endIndex != -1) {
+                String rscIds = diagnostics.substring(resourceIdIndex + 9, endIndex); // Adjusted substring start
+                // Ensure rscIds is in the format you need
+                rscIds = rscIds.replaceAll("[^a-zA-Z0-9]", ""); // Remove non-alphanumeric characters
+                if (rscIds.length() > 3) {
+                    rscIds = rscIds.substring(rscIds.length() - 3);
+                }
+                errorResourceIds.add(rscIds);
+                bundleError.setErrorResourseId("040-" + rscIds + "-ProviderOrganiz"); // Construct the desired format
+            }
+        }
+        
+        // If diagnostics logic didn't find a resource ID, try extracting from location field
+        if (errorResourceIds.isEmpty() && !issue.getLocation().isEmpty()) {
+            String location = issue.getLocation().get(0).getValue();
+            int secondBackSlashIndex = location.lastIndexOf('/');
+            String rscIds = location.substring(secondBackSlashIndex + 1);
+            // Ensure rscIds is in the format you need
+            rscIds = rscIds.replaceAll("[^a-zA-Z0-9]", ""); // Remove non-alphanumeric characters
+            if (rscIds.length() > 3) {
+                rscIds = rscIds.substring(rscIds.length() - 3);
+            }
+            errorResourceIds.add(rscIds);
+            bundleError.setErrorResourseId("040-" + rscIds + "-ProviderOrganiz"); // Construct the desired format
+        }
+        
+        // Set other error details (unchanged from your original code)
+        bundleError.setAnthemBundleId(bundleId);
+        bundleError.setBcbsaBundleId(Constants.NA);
+        bundleError.setProviderResourseId(Constants.NA);
+        bundleError.setErrorResourseType("Organization");
+        bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+        bundleError.setBundleErrorResourseStatusCode(Constants.status_422);
+        bundleError.setErrorResponseJson(responseEntityStr.getBody());
+        bundleError.setBundleErrorResponseReasonDesc(issue.getDiagnostics());
+        bundleError.setBundleRequestJson(jsonMainData);
+        bundleError.setBundleErrorResponseDetail(Constants.NA);
+        bundleError.setBundleSubmissionDtm(currentTimeStamp);
+        bundleError.setErrorRtrvlDtm(currentTimeStamp);
+        bundleError.setCrtcUserId(Constants.USER_ID);
+        bundleError.setUpdtUserId(Constants.USER_ID);
+        bundleError.setClvrlfLoadId(bundleError.hashCode());
+        bundleErrorResponseList.add(bundleError);
+    }
+    
+    // Update records based on errorResourceIds
+    if (!CollectionUtils.isEmpty(errorResourceIds) && !CollectionUtils.isEmpty(bundleErrorResponseList)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_FAILED, Constants.Status_OrgFailed, new Date(), errorResourceIds);
+        pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+        logger.error("Error data saved successfully for bundle Id " + bundleId);
+    }
+    
+    // Update other records based on filteredLctnIds
+    List<String> filteredLctnIds = organisationIds.stream().filter(id -> !errorResourceIds.contains(id)).collect(Collectors.toList());
+    if (!CollectionUtils.isEmpty(filteredLctnIds)) {
+        pdtItemService.updateAllorgRecordStatus(Constants.STATUS_YETTOSUBMIT, Constants.Status_OrgFailed, new Date(), filteredLctnIds);
+    }
+}

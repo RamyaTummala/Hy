@@ -59,5 +59,4 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT DISTINCT prov_resource_id, PROV_DAY_OF_WEEK, PROV_OFC_STRT_TM, PROV_OFC_END_TM
     FROM pdt.pofc_hours
-) POF ON WR.prov_resource_id = POF.prov_resource_id
-WHERE WR.PRCTR_ROLE_ID = <>; -- Replace <> with the specific PRCTR_ROLE_ID you're interested in
+) POF ON WR.prov_resource_id = POF.prov_resource_id;

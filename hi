@@ -1,1 +1,73 @@
 
+else if((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue()))
+				{
+					FhirContext ctx = FhirContext.forR4();
+					OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class,responseEntityStr.getBody()); 
+					List<String> errorResourceIds = new ArrayList<>();
+					for(OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+						FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+						String diagnostics = issue.getDiagnostics();
+						int diagnosticsparseIndex = diagnostics.indexOf('(');
+						String diagnosticsSubString = (diagnosticsparseIndex != -1) ?diagnostics.substring(0,diagnosticsparseIndex):diagnostics;
+						String rscIds = null;
+						
+						if(!issue.getLocation().isEmpty()) {
+						String location = issue.getLocation().get(0).getValue();
+						int fisrtBackLashIndex = location.indexOf('/');
+						int secondBackLashIndex = location.indexOf('/',fisrtBackLashIndex+1);
+						int endIndex = location.indexOf("*",secondBackLashIndex+1);
+						rscIds = location.substring(secondBackLashIndex+1,endIndex);
+						if(rscIds.isEmpty()) {
+							 diagnostics = issue.getDiagnostics();
+							int orgPrefix = diagnostics.indexOf("040");
+							if(orgPrefix!=-1) {
+								int orgSuffix = diagnostics.indexOf("ProviderOrganiz");
+								if(orgSuffix!=-1) {
+									String res = diagnostics.substring(orgPrefix,orgSuffix);
+								}
+							}		
+						}
+						errorResourceIds.add(rscIds);
+						}
+
+
+
+
+else if((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue()))
+					{
+						String unprocessableEntity =  responseEntityStr.getBody();
+						if(unprocessableEntity!=null)
+						{
+						JsonParser parser = new JsonParser();
+						JsonObject jsonObject = parser.parse(unprocessableEntity).getAsJsonObject();
+						//get issue array
+						JsonArray issueArray = jsonObject.getAsJsonArray("issue");
+						List<String> unprocessableEntitylocationids = new ArrayList<>();
+						FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+						for(JsonElement issueElement : issueArray) {
+							JsonObject issueObject = issueElement.getAsJsonObject();
+							//extract diagnostic and lctnid
+							JsonArray locationArray = issueObject.getAsJsonArray("location");
+							String  diagnostic = issueObject.get("diagnostics").getAsString();
+							String locationId = locationArray.get(0).getAsString();
+							String lcnId = null;
+							String diagnostickey =null;
+							String resourceType = null;
+							int colonIndex = diagnostic.indexOf(":");
+							if(colonIndex!= -1)
+							{
+								diagnostickey = diagnostic.substring(0,colonIndex);
+							}
+							if(locationId!=null)
+							{
+								int start = locationId.indexOf("/*Organization");
+								int end   = locationId.indexOf("*/");
+								if(start!=-1&&end!=-1&&start<end)
+								{
+									lcnId = locationId.substring(start+15,end);
+									int firstDashIndex = lcnId.indexOf("-");
+									int SecondDashIndex = lcnId.indexOf("-",firstDashIndex+1);
+									resourceType = lcnId.substring(SecondDashIndex+1);
+									unprocessableEntitylocationids.add(lcnId);
+
+								}

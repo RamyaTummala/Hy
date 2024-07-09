@@ -1,1 +1,70 @@
-
+WITH TR AS(SELECT /*+PARALLEL(AUTO)*/ TR.RSRC_TYPE,TR.PROV_RESOURCE_ID,TR.RSRC_ID,TR.REC_ID,TR.SBMSN_STTS,TR.ETL_LOAD_ID,TR.RCRD_STTS FROM PDT.PROV_ROLE_AFFLTN_TRGR TR WHERE 
+TR.RSRC_TYPE = 'PractitionerRole'
+AND TR.RSRC_ID IS NOT NULL 
+--AND TR.SBMSN_STTS = 'To Be Submitted'
+)
+SELECT   /*+PARALLEL(AUTO)*/
+                DISTINCT PR.PRCTR_ROLE_ID,
+                TR.RSRC_TYPE,
+                PR.PROV_RESOURCE_ID,
+                TR.REC_ID,
+                PR.PROV_TYPE_PERF_CLM,
+                PR.ENTITY_TYPE,
+                PR.DIR_DSPLY_IND,
+                PR.PROV_PATIENT_AGE_FROM,
+                PR.PROV_PATIENT_AGE_TO,
+                PR.PROV_PATIENT_GNDR_RESTRCT,
+                PR.PROV_PHYSN_STTS_CD,
+                PR.PRCTR_TRMNTN_RSN_CD,
+                PR.PROV_PCP_EFCTV_DT,
+                PR.PROV_PCP_TRMNTN_DT,
+                PR.PCP_IND,
+                PR.PROV_CPTN_IND,
+                PR.PCP_SELECTABILITY_IND,
+                PR.PRCTR_ROLE_EFCTV_DT,
+                PR.PRCTR_ROLE_TRMNTN_DT,
+                PR.ORG_RESOURCE_ID,
+                PR.NTWK_RESOURCE_ID,
+                PR.LCNS_RESOURCE_ID,
+                PR.PROV_TYPE_PERF_DSPLY_VAL,
+                PR.PROV_TIER_DESGNTN_IND,
+                PR.PROV_DSPLY_SUPPRSN_RSN_CD,
+                VBP.BCBSA_VBP_ID,
+                VBP.PROV_MBR_SLF_ATRBTN_IND, 
+                POFC.PROV_DAY_OF_WEEK,
+                POFC.PROV_OFC_STRT_TM,
+                POFC.PROV_OFC_END_TM,
+                PR.AFFLTN_TYPE,
+                WIDTH_BUCKET(TO_NUMBER(PR.MSTR_PROV_ID), 1, 70000, 5) PR_GRP,
+                CASE WHEN PR.PROV_HOSP_AFFLTN_TYPE ='ADMITPRIV' THEN 'Hospital admitting privileges' ELSE  'Facility affiliation' END AS DISPLAY,
+                PR.PROV_AFFLTN_RESOURCE_ID,
+                PR.PROV_HOSP_AFFLTN_TYPE,
+                VBP.PROV_ENTY_ID,
+                PR.TXNMY_CD,
+                PR.TXNMY_DSPLY_VAL,
+                LX.LCTN_RESOURCE_ID,
+                PH.PROV_HLTH_SRVC_RESOURCE_ID
+                FROM TR,PDT.PROV_TRGR TRN,PDT.WRK_PRCTR_ROLE PR 
+                INNER JOIN PDT.WRK_PRCTR_ROLE_LCTN_XWALK LX
+                ON PR.PRCTR_ROLE_ID = LX.PRCTR_ROLE_ID
+                LEFT JOIN (SELECT * FROM PDT.PROV_VBP VBP
+                INNER JOIN PDT.BCBSA_PLANCD_VBP_XWALK PLV
+                ON VBP.BCBSA_VBP_ID=PLV.VBP_ID
+                AND SUBSTR(VBP.NTWK_RESOURCE_ID,0,3)=PLV.PLAN_CD
+                AND  VBP.PROV_MBR_SLF_ATRBTN_IND IS NOT NULL
+                AND  VBP.PROV_ENTY_ID IS NOT NULL) VBP
+                ON PR.PROV_RESOURCE_ID  = VBP.PROV_RESOURCE_ID
+                AND LX.LCTN_RESOURCE_ID = VBP.LCTN_RESOURCE_ID
+                AND PR.NTWK_RESOURCE_ID = VBP.NTWK_RESOURCE_ID
+                AND  VBP.BCBSA_VBP_ID IS NOT NULL
+                INNER JOIN PDT.POFC_HOURS POFC
+                ON PR.PROV_RESOURCE_ID = POFC.PROV_RESOURCE_ID 
+                INNER JOIN PDT.WRK_PROV_HLTH_SRVC PH
+                ON  PH.LCTN_RESOURCE_ID  = LX.LCTN_RESOURCE_ID
+                AND PH.PRCTR_ROLE_RESOURCE_ID = LX.PRCTR_ROLE_ID
+                WHERE TRN.PROV_RESOURCE_ID      = TR.PROV_RESOURCE_ID
+                AND TR.PROV_RESOURCE_ID = PR.PROV_RESOURCE_ID AND TR.RSRC_ID = PR.PRCTR_ROLE_ID
+                AND (TRN.PRE_INDV_ORG_SBMSN_STTS = 'Y' OR (TRN.PRE_INDV_ORG_SBMSN_STTS = 'N' AND PR.PRCTR_TRMNTN_RSN_CD IS NOT NULL))
+                AND  PR.ORG_RESOURCE_ID IS NOT NULL 
+                AND  PR.PROV_AFFLTN_RESOURCE_ID IS NOT NULL fetch first 1000 rows only;
+                

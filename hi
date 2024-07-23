@@ -1,1 +1,613 @@
+package com.anthem.pdt.common.custom.writer;
 
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.hl7.fhir.r4.model.Address;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ContactPoint;
+import org.hl7.fhir.r4.model.Enumeration;
+import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.HealthcareService;
+import org.hl7.fhir.r4.model.HumanName;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Location;
+import org.hl7.fhir.r4.model.Meta;
+
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryRequestComponent;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryResponseComponent;
+import org.hl7.fhir.r4.model.Bundle.HTTPVerb;
+import org.hl7.fhir.r4.model.ContactPoint.ContactPointSystem;
+import org.hl7.fhir.r4.model.ContactPoint.ContactPointUse;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Location.DaysOfWeek;
+import org.hl7.fhir.r4.model.Location.DaysOfWeekEnumFactory;
+import org.hl7.fhir.r4.model.Location.LocationHoursOfOperationComponent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+
+import com.anthem.pdt.common.Repo.PdtRepo;
+import com.anthem.pdt.common.batch.PdtItemService;
+
+import com.anthem.pdt.common.batch.dto.PractitionerRolePdt;
+import com.anthem.pdt.common.batch.dto.PractitionerRoleTrgrResponse;
+import com.anthem.pdt.common.batch.dto.PractitionerTrgrResponse;
+import com.anthem.pdt.common.batch.dto.ProvLocation;
+import com.anthem.pdt.common.batch.dto.TrgrResponse;
+import com.anthem.pdt.common.batch.dto.response.view.MainView;
+import com.anthem.pdt.common.batch.dto.response.view.OfficeHoursView;
+import com.anthem.pdt.common.batch.dto.response.view.TelecomView;
+import com.anthem.pdt.common.batch.processor.PdtProvLocationProcessor;
+import com.anthem.pdt.common.constants.Constants;
+import com.anthem.pdt.common.custom.processor.BearerTokenCache;
+import com.anthem.pdt.common.custom.processor.CustomFhirContext;
+import com.anthem.pdt.common.entity.FhirBundleErrorResponse;
+import com.anthem.pdt.common.entity.FhirBundleSubmissionResponse;
+import com.fasterxml.jackson.databind.annotation.JsonAppend.Attr;
+
+import ca.uhn.fhir.context.FhirContext;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Address.AddressUse;
+import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.OperationOutcome.OperationOutcomeIssueComponent;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Practitioner;
+import org.hl7.fhir.r4.model.Practitioner.PractitionerQualificationComponent;
+import org.hl7.fhir.r4.model.PractitionerRole;
+import org.hl7.fhir.r4.model.Reference;
+
+import ca.uhn.fhir.parser.IParser;
+
+
+@Configuration
+@Component
+
+public class CustomPractitionerRoleWriter implements ItemWriter<PractitionerRoleTrgrResponse> {
+	private static Logger logger = LoggerFactory.getLogger(CustomPractitionerRoleWriter.class);
+	@Autowired
+	private PdtRepo pdtRepo;
+	@Value("${practitionerrole.bundleSize}")
+	private int bundleSize;
+	@Autowired
+	private PdtItemService pdtItemService;
+	
+	@Autowired
+	private PdtProvLocationProcessor pdtProvLocationProcessor;
+	
+	@Autowired
+	private BearerTokenCache tokenCache;
+	
+	private final JdbcTemplate jdbcTemplate;
+	
+	public CustomPractitionerRoleWriter(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+	  
+
+	//@Cacheable("bearerToken")
+	public String getBearerToken() {
+		return tokenCache.getToken("DYNAMIC_TOKEN");
+	}
+
+	
+	
+	
+	private Bundle createBundle(Map<String, PractitionerRole> mapofdata, List<String> resourceIds) {
+		Bundle bundle = new Bundle().setType(Bundle.BundleType.BATCH);
+		bundle.setId("040-"+UUID.randomUUID().toString()+"-practroleBundle");
+		List<BundleEntryComponent> entryList = new ArrayList<>();
+		for(PractitionerRole i : mapofdata.values() ) {	
+		BundleEntryComponent entry = new BundleEntryComponent();
+		BundleEntryRequestComponent request = new BundleEntryRequestComponent();
+		request.setMethod(HTTPVerb.PUT);
+		request.setUrl("PractitionerRole/"+i.getId());
+		entry.setFullUrl("http://bpd.bcbs.com/PractitionerRole/"+i.getId());
+		entry.setResource(i);
+		entry.setRequest(request);
+		entryList.add(entry);
+		}
+		bundle.setEntry(entryList);
+		return bundle;
+	}
+	
+	
+	@Override
+	public void write(List<? extends PractitionerRoleTrgrResponse> items) throws Exception {
+		List<String> resourceId=new ArrayList<String>();
+		List<String> recId=new ArrayList<String>();
+		int i=0;
+		for(PractitionerRoleTrgrResponse a:items) {
+			resourceId.add(a.getProvResourceId());
+			recId.add(a.getRecId());
+			i++;
+			//logger.info("Ids "+a.getProvResourceId());
+		}
+
+		long startTime = System.currentTimeMillis();
+		
+		List<Object[]> records=new ArrayList<Object[]>();
+		try {
+			long startTimeForBearerTokenApi = System.currentTimeMillis();
+			records=pdtRepo.findPractitionerRoleByResourceId(resourceId);
+			long timeTakenForBearerToken = System.currentTimeMillis() - startTimeForBearerTokenApi;
+			logger.info("time taken for 2 Query :"+timeTakenForBearerToken);
+					}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+		
+		Map<String, PractitionerRole> bulkMapofdata = populatePractitionerData(records);
+		List<Map<String, PractitionerRole>> listofmappeddata= splitMapIntoGroups(bulkMapofdata,10);
+		//List<String> pracroleIds = new ArrayList<>();
+		for(Map<String, PractitionerRole> dataMap :listofmappeddata) {
+			//pracroleIds.addAll(eachMap.keySet());
+//		try {
+//			pdtItemService.updatePROVAFFLTNTRGRStatus(Constants.STATUS_SUCCESS,"Y", new Date(), resourceId);
+//			}
+//			catch(Exception e) {
+//				e.printStackTrace();
+//			}
+		Bundle bundle = createBundle(dataMap,resourceId);
+	    Date currentDate = new Date();
+	    SimpleDateFormat formatter = new SimpleDateFormat(Constants.DATE_FORMAT_dd_MMM_yyyy);
+		String currentTimeStamp = formatter.format(currentDate);
+		FhirContext ctx = CustomFhirContext.getInstance();
+	    // Invoke APIs and process DB updates for each chunk
+		IParser ip = CustomFhirContext.getInstance().newJsonParser().setPrettyPrint(true);
+		logger.trace(ip.encodeResourceToString(bundle));
+	    invokeAPIsAndProcessDBUpdates(currentTimeStamp ,resourceId ,bundle, ip);
+		}
+		}
+		
+
+	
+	public List<Map<String, PractitionerRole>> splitMapIntoGroups(Map<String, PractitionerRole> recordsMap,int chunkSize){
+	
+		List<Map<String, PractitionerRole>> splitMaps=new ArrayList<>();
+		Map<String, PractitionerRole> currentMap=new HashMap<>();
+		int count=0;
+		for(Map.Entry<String, PractitionerRole> entry:recordsMap.entrySet()) {
+			currentMap.put(entry.getKey(), entry.getValue());
+			count++;
+			if(count % chunkSize == 0) {
+				splitMaps.add(currentMap);
+				currentMap=new HashMap<>();
+			}
+		}
+		if(!currentMap.isEmpty()) {
+			splitMaps.add(currentMap);
+		}
+		return splitMaps;
+	}
+	
+	@Async("LocationTaskExecuter")
+	private void invokeAPIsAndProcessDBUpdates(String currentTimeStamp, List<String> resourceIds, Bundle bundle,
+			IParser ip) {
+		logger.trace(Thread.currentThread().getName());
+		String bundleId = bundle.getId();
+		// Fetch Bearer token using Auth Code
+		long startTimeForBearerTokenApi = System.currentTimeMillis();
+		logger.trace(bundleId);
+	    // String accessToken = pdtProvLocationProcessor.fetchBearerToken();
+		String accessToken = getBearerToken();
+		long timeTakenForBearerToken = System.currentTimeMillis() - startTimeForBearerTokenApi;
+		logger.info("TimetakenToFetchBearerToken is:" + timeTakenForBearerToken);
+		String jsonMainData = ip.encodeResourceToString(bundle);
+		// fireRequestUsingOktaClient(accessToken, jsonMainData);
+		// Post Data to FHIR Server
+		long startTimeForFHIRAPI = System.currentTimeMillis();
+		logger.info("Request data ---------"+jsonMainData);
+		ResponseEntity<String> responseEntityStr=null;
+			responseEntityStr = pdtProvLocationProcessor.fireRequestUsigRestTemplate(accessToken,
+				jsonMainData);
+			long timeTakenForFHIR = System.currentTimeMillis() - startTimeForFHIRAPI;
+			logger.info("TimetakenForFHIRAPI is: " + timeTakenForFHIR);
+			logger.info("--------------- response body -------"+responseEntityStr.getStatusCodeValue()+""+responseEntityStr.getBody());
+			logger.trace(responseEntityStr.toString());	
+			Bundle parsedBundle = new Bundle();
+			List<FhirBundleSubmissionResponse> fhirBundle = new ArrayList<FhirBundleSubmissionResponse>();
+			List<FhirBundleErrorResponse> bundleErrorResponseList = new ArrayList<FhirBundleErrorResponse>();
+			
+			if(Constants.successStatusCode == responseEntityStr.getStatusCodeValue())
+			{
+				parsedBundle = ip.parseResource(Bundle.class, responseEntityStr.getBody());
+				pdtItemService.updatePROVAFFLTNTRGRStatus(Constants.STATUS_SUCCESS,"Y", new Date(), resourceIds);
+			}
+			else if((Constants.StatusCode422) == (responseEntityStr.getStatusCodeValue()))
+			{
+				FhirContext ctx = FhirContext.forR4();
+				OperationOutcome operationOutcome = ctx.newJsonParser().parseResource(OperationOutcome.class,responseEntityStr.getBody()); 
+				List<String> errorResourceIds = new ArrayList<>();
+				for(OperationOutcomeIssueComponent issue : operationOutcome.getIssue()) {
+					FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+										String diagnostics = issue.getDiagnostics();
+										String rscIds = null;
+										if(!issue.getLocation().isEmpty()) {
+										String location = issue.getLocation().get(0).getValue();
+										int fisrtBackLashIndex = location.indexOf('/');
+										int secondBackLashIndex = 0;
+										int endIndex = 0;
+										if(fisrtBackLashIndex != -1) {
+										secondBackLashIndex = location.indexOf('/',fisrtBackLashIndex+1);
+										if(secondBackLashIndex != -1) {
+										endIndex = location.indexOf("*",secondBackLashIndex+1);
+										rscIds = location.substring(secondBackLashIndex+1,endIndex);
+										}
+										}
+										}
+										if(rscIds == null)
+										{
+											int startIndex = diagnostics.indexOf("040");
+											if(startIndex != -1) {
+												int endindex = diagnostics.indexOf("PractitionerRole",startIndex);
+												endindex += "PractitionerRole".length();
+												rscIds = diagnostics.substring(startIndex, endindex);
+											}
+										}
+										errorResourceIds.add(rscIds);
+					 
+					bundleError.setAnthemBundleId(bundleId);
+					bundleError.setBcbsaBundleId(Constants.NA);
+					bundleError.setProviderResourseId(Constants.NA);
+					bundleError.setErrorResourseId(rscIds); 
+					bundleError.setErrorResourseType("PractitionerRole");
+					bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+					bundleError.setBundleErrorResourseStatusCode(Constants.status_422);
+					bundleError.setErrorResponseJson(responseEntityStr.getBody());
+					bundleError.setBundleErrorResponseReasonDesc(diagnostics); 
+					bundleError.setBundleRequestJson(jsonMainData);
+					bundleError.setBundleErrorResponseDetail(Constants.NA);
+					bundleError.setBundleSubmissionDtm(currentTimeStamp);
+					bundleError.setErrorRtrvlDtm(currentTimeStamp);
+					bundleError.setCrtcUserId(Constants.USER_ID);
+					bundleError.setUpdtUserId(Constants.USER_ID);
+					bundleError.setClvrlfLoadId(bundleError.hashCode());
+					bundleErrorResponseList.add(bundleError);
+				}
+				if(!CollectionUtils.isEmpty(errorResourceIds)&&!CollectionUtils.isEmpty(bundleErrorResponseList) ) {
+					pdtItemService.updatePROVAFFLTNTRGRStatus(Constants.STATUS_FAILED,"N",new Date(), errorResourceIds);
+					pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+					logger.error(bundleErrorResponseList + "Error data saved successfully for bundle Id " + bundleId);
+					}
+				List<String> filteredLctnIds = resourceIds.stream().filter(id->!errorResourceIds.contains(id)).collect(Collectors.toList());
+				if(!CollectionUtils.isEmpty(filteredLctnIds)) {
+					pdtItemService.updatePROVAFFLTNTRGRStatus(Constants.STATUS_YETTOSUBMIT,"N",new Date(), filteredLctnIds);
+				}
+					
+			}
+			else if ((Constants.failed504Code) == (responseEntityStr.getStatusCodeValue())) 
+			{
+				int i = 0;
+				for (String locationIds : resourceIds) 
+				{
+					FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+					bundleError.setAnthemBundleId(bundleId);
+					bundleError.setBcbsaBundleId(Constants.NA);
+					bundleError.setProviderResourseId(Constants.NA);
+					bundleError.setErrorResourseId(locationIds); 
+					bundleError.setErrorResourseType(bundle.getEntry().get(0).getId());
+					bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+					bundleError.setBundleErrorResourseStatusCode(Constants.ERROR);
+					bundleError.setBundleErrorResponseReasonDesc(Constants.NA); 
+					bundleError.setBundleErrorResponseDetail(Constants.NA);
+					bundleError.setBundleSubmissionDtm(currentTimeStamp);
+					bundleError.setErrorRtrvlDtm(currentTimeStamp);
+					bundleError.setCrtcUserId(Constants.USER_ID);
+					bundleError.setUpdtUserId(Constants.USER_ID);
+					bundleError.setClvrlfLoadId(bundleError.hashCode());
+					if(i==0)
+					{
+						bundleError.setBundleRequestJson(jsonMainData);
+						bundleError.setErrorResponseJson(responseEntityStr.getBody());
+					}
+					i++;
+					bundleErrorResponseList.add(bundleError);
+				}
+				if(!CollectionUtils.isEmpty(resourceIds)&&!CollectionUtils.isEmpty(bundleErrorResponseList)) {
+					pdtItemService.updatePROVAFFLTNTRGRSwithBndlID(Constants.FAILED_504_CODE,"N",new Date(),bundleId,resourceIds);
+					pdtItemService.addingErrorDataIntoDB(bundleErrorResponseList);
+					}
+			}
+			else
+			{
+				FhirBundleErrorResponse bundleError = new FhirBundleErrorResponse();
+				bundleError.setAnthemBundleId(bundleId);
+				bundleError.setBcbsaBundleId(Constants.NA);
+				bundleError.setErrorResourseId(bundle.getEntry().get(0).getId()); 															
+				bundleError.setProviderResourseId(Constants.NA);
+				bundleError.setErrorResourseType(bundle.getEntry().get(0).getId());
+				bundleError.setBundleErrorResourseCode(String.valueOf(responseEntityStr.getStatusCodeValue()));
+				bundleError.setBundleErrorResourseStatusCode(Constants.ERROR);
+				bundleError.setErrorResponseJson(responseEntityStr.getBody());
+				bundleError.setBundleErrorResponseReasonDesc(responseEntityStr.getStatusCode().getReasonPhrase()); 
+				bundleError.setBundleRequestJson(jsonMainData);
+				bundleError.setBundleErrorResponseDetail(Constants.NA);
+				bundleError.setBundleSubmissionDtm(currentTimeStamp);
+				bundleError.setErrorRtrvlDtm(currentTimeStamp);
+				bundleError.setCrtcUserId(Constants.USER_ID);
+				bundleError.setUpdtUserId(Constants.USER_ID);
+				bundleError.setClvrlfLoadId(bundleError.hashCode());
+				bundleErrorResponseList.add(bundleError);
+				logger.error(bundleErrorResponseList + "Error data saved successfully for bundle Id " + bundleId);
+				pdtItemService.addingErrorRecordToDB(bundleError);
+				pdtItemService.updatePROVAFFLTNTRGRStatus(Constants.STATUS_FAILED,"N",new Date(),resourceIds);
+			}
+			List<BundleEntryComponent> entryList = parsedBundle.getEntry();
+			int i = 0;
+			for (BundleEntryComponent a : entryList) {
+				BundleEntryResponseComponent res = new BundleEntryResponseComponent();
+				res = a.getResponse();
+				FhirBundleSubmissionResponse fhir = new FhirBundleSubmissionResponse();
+				fhir.setAnthemBundleId(bundleId);
+				fhir.setBcbsaBundleId(parsedBundle.getId());
+				fhir.setMasterProviderId(Constants.NA);
+				String[] status = res.getStatus().split(" ");
+				fhir.setBundleResponseCode(status[0]);
+				fhir.setBundleResponseDtl(status[1]);
+				fhir.setBundleSubmissionDtm(new Date());
+				fhir.setBundleResponseDtm(new Date());
+				fhir.setCreatedUserId(Constants.USER_ID);
+				fhir.setUpdatedUserId(Constants.USER_ID);
+				String[] resourceId = res.getLocation().split("/");
+				fhir.setRsrcId(resourceId[1]);
+				fhir.setClvrlfLoadId((long) fhir.hashCode());
+//				if (i == 0) {
+//					fhir.setBundleRequestJson(jsonMainData);
+//					fhir.setBundleResponseJson(responseEntityStr.getBody());
+//				}
+			//	i++;
+				fhirBundle.add(fhir);
+				// logger.info(fhir.getRsrcId()+" "+fhir.getClvrlfLoadId());
+			}
+			if (!fhirBundle.isEmpty()) {
+				fhirBundle = pdtItemService.addingDataIntoDB(fhirBundle);
+				// logger.info(fhirBundle + "saved successfully");
+			}
+		
+		
+}
+		
+	private Map<String, PractitionerRole> populatePractitionerData(List<Object[]> records) {
+		Map<String, PractitionerRole> practionerRoleEntryData = new HashMap<>();
+		Map<String,HashSet<String>> dupCheckMap = new HashMap<>();
+		int count =1;
+		
+		for(Object[] practionerRoleData:records) {
+			
+				if(practionerRoleEntryData.containsKey(practionerRoleData[0].toString())) {
+					
+					if((practionerRoleData[17] != null)){
+						 if(!dupCheckMap.get(practionerRoleData[0].toString()).contains(practionerRoleData[17].toString())) {
+							 
+								DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+							 	LocalDate date = LocalDate.parse(practionerRoleData[17].toString(),inputFormatter);
+								DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+								String outPutDate = date.format(outputFormatter);
+								Period period = new Period();
+								period.setStartElement(new DateTimeType(outPutDate));
+								practionerRoleEntryData.get(practionerRoleData[0].toString()).setPeriod(period);
+								dupCheckMap.get(practionerRoleData[0].toString()).add(practionerRoleData[17].toString());
+						 }
+					}
+					
+					if((practionerRoleData[36] != null) && (practionerRoleData[37] != null)){
+						 if(!dupCheckMap.get(practionerRoleData[0].toString()).contains(practionerRoleData[36].toString())) {
+							 practionerRoleEntryData.get(practionerRoleData[0].toString()).addSpecialty(createCodeableConcept("http://nucc.org/provider-taxonomy",practionerRoleData[36].toString(),practionerRoleData[37].toString()));
+							 dupCheckMap.get(practionerRoleData[0].toString()).add(practionerRoleData[36].toString());
+						 }
+					}
+				
+		
+					
+					if((practionerRoleData[33] != null)){
+						 if(!dupCheckMap.get(practionerRoleData[0].toString()).contains(practionerRoleData[33].toString())) {
+							 practionerRoleEntryData.get(practionerRoleData[0].toString()).addExtension(createRefernceExtensionCodeableConcept("http://bpd.bcbs.com/StructureDefinition/provaffiliation","http://bpd.bcbs.com/CodeSystem/BCBSProviderAffiliationTypeCS",practionerRoleData[34].toString(),practionerRoleData[32].toString(),practionerRoleData[33].toString()));	
+							 dupCheckMap.get(practionerRoleData[0].toString()).add(practionerRoleData[33].toString());
+						 }
+					}
+					
+					
+					if((practionerRoleData[39] != null)){
+						 if(!dupCheckMap.get(practionerRoleData[0].toString()).contains(practionerRoleData[39].toString())) {
+							 practionerRoleEntryData.get(practionerRoleData[0].toString()).addHealthcareService(new Reference("HealthcareService/"+practionerRoleData[39].toString()));//healthcareserviceid
+							 dupCheckMap.get(practionerRoleData[0].toString()).add(practionerRoleData[39].toString());
+						 }
+					}
+				}
+				else {
+			
+				PractitionerRole practitionerole = new PractitionerRole();
+				HashSet<String> uniqueIdentifcationset = new HashSet<>();
+				practitionerole.setId((null == practionerRoleData[0]) ? null :practionerRoleData[0].toString());
+				
+				// Set the profile
+		        Meta meta = new Meta();
+				List<CanonicalType> profile = new ArrayList<>();
+				CanonicalType ctype = new CanonicalType(
+						"http://bpd.bcbs.com/StructureDefinition/bpd-practitionerrole-plan-submission");
+				profile.add(ctype);
+				meta.setProfile(profile);
+				practitionerole.setMeta(meta);
+				
+				List<CodeableConcept> code = new ArrayList<>();
+				if(practionerRoleData[4] != null && practionerRoleData[22] != null )
+				practitionerole.addCode(createCode("http://bpd.bcbs.com/CodeSystem/BCBSProviderTypeCS",practionerRoleData[4].toString(),practionerRoleData[22].toString()));
+				if(practionerRoleData[5] != null)
+				practitionerole.addCode(createCode("http://bpd.bcbs.com/CodeSystem/BCBSProviderEntityTypeCS",practionerRoleData[5].toString(),Constants.Provider_entity_type_code.get(practionerRoleData[5].toString())));
+				
+				practitionerole.addExtension(new Extension("http://bpd.bcbs.com/StructureDefinition/provcontract",new BooleanType(true)));
+				
+				Extension providerDiplayExtension = new Extension("http://bpd.bcbs.com/StructureDefinition/providerdisplay");
+				
+				if(practionerRoleData[6] != null) {
+				if(!Boolean.valueOf(practionerRoleData[6].toString())) {
+					practitionerole.addExtension((Extension) new Extension("http://bpd.bcbs.com/StructureDefinition/providerdisplay").setExtension(createValueCodeableConcept("displaySuppressionReasonProvider","http://bpd.bcbs.com/CodeSystem/BCBSDisplaySuppressionReasonProviderCS",practionerRoleData[24].toString(),Constants.Suppersion_reason_code.get(practionerRoleData[24].toString()))));
+				}//suppressioncode-15
+				else
+				{
+					providerDiplayExtension.addExtension(new Extension("displayIndicatorProvider",new BooleanType(Boolean.valueOf(practionerRoleData[6].toString()))));
+														
+				}
+				}
+				
+				practitionerole.addExtension(providerDiplayExtension);
+				if(practionerRoleData[30] != null) {
+				practitionerole.addExtension(createRefernceExtensionCodeableConcept("http://bpd.bcbs.com/StructureDefinition/provaffiliation","http://bpd.bcbs.com/CodeSystem/BCBSProviderAffiliationTypeCS",practionerRoleData[30].toString(),Constants.provAffType.get(practionerRoleData[30].toString()),practionerRoleData[33].toString()));
+				}
+				if(practionerRoleData[21]!=null) {
+				practitionerole.addExtension(new Extension("http://bpd.bcbs.com/StructureDefinition/licenseereference",new Reference("Organization/"+practionerRoleData[21].toString())));
+				}
+				if(practionerRoleData[10]!= null) {
+					
+				practitionerole.addExtension((Extension) new Extension("http://bpd.bcbs.com/StructureDefinition/newpatients").setExtension(createValueCodeableConcept("acceptingPatients","http://bpd.bcbs.com/CodeSystem/AcceptingPatientsCS",practionerRoleData[10].toString(),practionerRoleData[10].toString().equals("yes")?"Accepting":"NotAccepting",practionerRoleData[9].toString())));    
+				}
+				if(practionerRoleData[14] != null) {
+				if(practionerRoleData[14].toString()!=null && (practionerRoleData[14].toString()=="S" || practionerRoleData[14].toString()=="A" || practionerRoleData[14].toString()=="H")) { 
+					Extension managedCareExtesion = new Extension("http://bpd.bcbs.com/StructureDefinition/managedcare");
+					List<Extension> mangedcareExtesnionList = new ArrayList<>();
+					mangedcareExtesnionList.add(createPcpAndSelectabilityExtension("pcpIndicatorCode","http://bpd.bcbs.com/CodeSystem/BCBSPCPIndicatorCS",practionerRoleData[14].toString(),Constants.pcp_indicator.get(practionerRoleData[14].toString())));
+					mangedcareExtesnionList.add(createPcpAndSelectabilityExtension("pcpSelectabilityCode","http://bpd.bcbs.com/CodeSystem/BCBSPCPSelectabilityCS",practionerRoleData[16].toString(),Constants.PCP_SELECTABILITY_INDICATOR.get(practionerRoleData[16].toString())));
+					practitionerole.setExtension(mangedcareExtesnionList);
+					}
+				}
+				
+				if(practionerRoleData[20]!= null) {
+				practitionerole.addExtension(new Extension("http://bpd.bcbs.com/StructureDefinition/networkreference",new Reference("Organization/"+practionerRoleData[20])));
+				}
+				if(practionerRoleData[33]!= null) {
+				practitionerole.addExtension(createRefernceExtensionCodeableConcept("http://bpd.bcbs.com/StructureDefinition/provaffiliation","http://bpd.bcbs.com/CodeSystem/BCBSProviderAffiliationTypeCS",practionerRoleData[34].toString(),practionerRoleData[32].toString(),practionerRoleData[33].toString()));
+				uniqueIdentifcationset.add(practionerRoleData[33].toString());
+				}
+				DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+				if(practionerRoleData[17]!=null) {
+				LocalDate date = LocalDate.parse(practionerRoleData[17].toString(),inputFormatter);
+				
+				DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+				String outPutDate = date.format(outputFormatter);
+				Period period = new Period();
+				period.setStartElement(new DateTimeType(outPutDate));
+				practitionerole.setPeriod(period);
+				uniqueIdentifcationset.add(practionerRoleData[17].toString());
+				}
+				
+				if(practionerRoleData[36] !=null) {
+				practitionerole.addSpecialty(createCodeableConcept("http://nucc.org/provider-taxonomy",practionerRoleData[36].toString(),practionerRoleData[37].toString()));
+				uniqueIdentifcationset.add(practionerRoleData[36].toString());
+				}
+				
+				if(practionerRoleData[2]!= null) {
+				practitionerole.setPractitioner(new Reference("Practitioner/"+practionerRoleData[2].toString()));//practitionerid
+				}
+				
+				if(practionerRoleData[19]!= null) {
+				practitionerole.setOrganization(new Reference("Organization/"+practionerRoleData[19].toString()));//organizationid
+				uniqueIdentifcationset.add(practionerRoleData[19].toString());
+				}
+				if(practionerRoleData[38]!=null) {
+				practitionerole.addLocation(new Reference("Location/"+practionerRoleData[38].toString()));//lctnid
+				}
+				if(practionerRoleData[39]!=null) {
+				practitionerole.addHealthcareService(new Reference("HealthcareService/"+practionerRoleData[39].toString()));//healthcareserviceid
+				uniqueIdentifcationset.add(practionerRoleData[39].toString());
+				}
+				practionerRoleEntryData.put(practionerRoleData[0].toString(), practitionerole);
+				
+				dupCheckMap.put(practionerRoleData[0].toString(),uniqueIdentifcationset);
+				practionerRoleEntryData.put(practionerRoleData[0].toString(),practitionerole);
+				
+			}
+		}
+				return practionerRoleEntryData;
+		}
+		
+	
+
+
+	private static CodeableConcept createCode(String system,String code,String display) {
+		return createCodeableConcept(system,code,display);
+	}
+	
+
+	private static CodeableConcept createCodeableConcept(String system,String code,String display) {
+		return new CodeableConcept().addCoding(new Coding().setSystem(system).setCode(code).setDisplay(display));
+	}
+	private static List<Extension> createValueCodeableConcept(String contantValueurl,String system,String code,String display) {
+		CodeableConcept codeableConcept = new CodeableConcept().addCoding(new Coding().setSystem(system).setCode(code).setDisplay(display));
+		List<Extension> listOfExtension = new ArrayList<>();
+		listOfExtension.add(new Extension(contantValueurl).setValue(codeableConcept));
+		if(code.equalsIgnoreCase("yes"))
+			listOfExtension.add(new  Extension("characteristics").setValue(new StringType("both")));
+		if(Constants.Suppersion_reason_code.containsKey(code))
+			listOfExtension.add(new Extension("displayIndicatorProvider",new BooleanType(Boolean.valueOf("false"))));
+		
+//		Extension mainExtenion = new Extension();
+//		mainExtenion.setUrl(url).setExtension(listOfExtension);
+		return listOfExtension ;
+	}//PROV_PATIENT_GNDR_RESTRCT[9]
+	
+	private static List<Extension> createValueCodeableConcept(String contantValueurl,String system,String code,String display,String gender) {
+		CodeableConcept codeableConcept = new CodeableConcept().addCoding(new Coding().setSystem(system).setCode(code).setDisplay(display));
+		List<Extension> listOfExtension = new ArrayList<>();
+		listOfExtension.add(new Extension(contantValueurl).setValue(codeableConcept));
+		if(code.equalsIgnoreCase("yes"))
+			listOfExtension.add(new  Extension("characteristics").setValue(new StringType("both")));
+		if(Constants.Suppersion_reason_code.containsKey(code))
+			listOfExtension.add(new Extension("displayIndicatorProvider",new BooleanType(Boolean.valueOf("false"))));
+		
+//		Extension mainExtenion = new Extension();
+//		mainExtenion.setUrl(url).setExtension(listOfExtension);
+		return listOfExtension ;
+	}
+	private static Extension createRefernceExtensionCodeableConcept(String url,String system,String code,String display,String refernceValue) {
+		CodeableConcept codeableConcept = new CodeableConcept().addCoding(new Coding().setSystem(system).setCode(code).setDisplay(display));
+		Extension mainExtension = new Extension();
+		List<Extension> listOfExtension = new ArrayList<>();
+		Extension codeableExtension = new Extension();
+		codeableExtension.setUrl("provAffType").setValue(codeableConcept);
+		listOfExtension.add(codeableExtension);
+		if(!code.equalsIgnoreCase("provgrp"))
+		{
+			Extension refenceExtension = new Extension();
+			refenceExtension.setUrl("provAffRef").setValue(new Reference("Organization/"+refernceValue));
+			listOfExtension.add(refenceExtension);
+		}
+		mainExtension.setUrl(url).setExtension(listOfExtension);
+		return mainExtension;
+	}
+	
+	public static Extension createPcpAndSelectabilityExtension(String contantValueurl,String system,String code,String display) {
+		CodeableConcept codeableConcept = new CodeableConcept().addCoding(new Coding().setSystem(system).setCode(code).setDisplay(display));
+		return new Extension().setValue(codeableConcept);
+	}
+	
+}

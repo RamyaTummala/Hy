@@ -1,1 +1,29 @@
+package com.anthem.pdt.common.batch.dto;
 
+import static org.junit.Assert.*;
+import org.junit.Before;
+import org.junit.Test;
+
+public class QualificationEntityTest {
+
+    private QualificationEntity qualificationEntity;
+
+    @Before
+    public void setUp() {
+        qualificationEntity = new QualificationEntity();
+    }
+
+    @Test
+    public void testGetAndSetQualResourceId() {
+        String resourceId = "12345";
+        qualificationEntity.setQualResourceId(resourceId);
+        assertEquals(resourceId, qualificationEntity.getQualResourceId());
+    }
+
+    @Test
+    public void testGetAndSetSchlName() {
+        String schoolName = "Sample School";
+        qualificationEntity.setSchlName(schoolName);
+        assertEquals(schoolName, qualificationEntity.getSchlName());
+    }
+}

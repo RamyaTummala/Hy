@@ -1,1 +1,115 @@
+package com.anthem.pdt.common.batch;
 
+
+import java.util.Date;
+import java.util.List;
+
+import javax.persistence.EntityManager;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.anthem.pdt.common.Repo.BundleErrorResponseRepo;
+import com.anthem.pdt.common.Repo.PdtRepo;
+import com.anthem.pdt.common.batch.dto.BundleErrorResponse;
+import com.anthem.pdt.common.entity.FhirBundleErrorResponse;
+import com.anthem.pdt.common.entity.FhirBundleSubmissionResponse;
+
+@Service
+public class PdtItemService {
+	
+	private static Logger logger = LoggerFactory.getLogger(PdtItemService.class);
+	
+	@Autowired
+	private PdtRepo pdtRepo;
+	
+	@Autowired
+	private BundleErrorResponseRepo bundleErrorRespRepo;
+	
+	
+	@Autowired
+	EntityManager entityManager;
+	
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public List<FhirBundleSubmissionResponse> addingDataIntoDB(List<FhirBundleSubmissionResponse> fhirBundle){
+		List<FhirBundleSubmissionResponse> dataAfterSaving=pdtRepo.saveAll(fhirBundle);
+		entityManager.flush();
+		entityManager.clear();
+		return dataAfterSaving;
+		
+	}
+
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public List<FhirBundleErrorResponse> addingErrorDataIntoDB(List<FhirBundleErrorResponse> bundleErrorResponseList){
+		List<FhirBundleErrorResponse> dataAfterSaving=bundleErrorRespRepo.saveAll(bundleErrorResponseList);
+		entityManager.flush();
+		entityManager.clear();
+		return dataAfterSaving;
+	}
+	
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public FhirBundleErrorResponse addingErrorRecordToDB(FhirBundleErrorResponse bundleErrorResponse){
+		FhirBundleErrorResponse dataAfterSaving=bundleErrorRespRepo.save(bundleErrorResponse);
+		entityManager.flush();
+		entityManager.clear();
+		return dataAfterSaving;
+	}
+	
+//	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updateRecordStatus(String statusInprogress, String currentTimeStamp, String rsrcId){
+		pdtRepo.updateRecordStatus(statusInprogress,currentTimeStamp,rsrcId);
+		entityManager.flush();
+		entityManager.clear();
+	}
+	
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updateAllRecordStatus(String statusInprogress, Date currentTimeStamp, List<String> rsrcIds){
+		pdtRepo.updateAllRecordStatus(statusInprogress,currentTimeStamp,rsrcIds);
+		entityManager.flush();
+		entityManager.clear();
+	}
+	
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updateAllRecordStatuswithBndlID(String statusInprogress, Date currentTimeStamp, String anthmBndlId ,List<String> rsrcIds){
+        pdtRepo.updateAllRecordStatuswithBndlID(statusInprogress,currentTimeStamp,anthmBndlId,rsrcIds);
+        entityManager.flush();
+        entityManager.clear();
+      }
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updateFailedbunleids(String yettosubmit,Date currentTimeStamp,List<String> failedBundleId) {
+		pdtRepo.updateFailedbunleids(yettosubmit,currentTimeStamp,failedBundleId);
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updatePROVAFFLTNTRGRStatus(String status,String rcrdstatus,Date currentTimeStamp,List<String> rsrcIds) {
+		pdtRepo.updatePROVAFFLTNTRGRStatus(status,rcrdstatus,currentTimeStamp,rsrcIds);
+		entityManager.flush();
+		entityManager.clear();
+	}
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updateAllorgRecordStatus(String statusInprogress, String statusOrgstatus, Date currentTimeStamp, List<String> provrsrcIds){
+		pdtRepo.updateAllorgRecordStatus(statusInprogress,statusOrgstatus,currentTimeStamp,provrsrcIds);
+		entityManager.flush();
+		entityManager.clear();
+	}
+	
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public void updatePROVAFFLTNTRGRSwithBndlID(String status,String rcrdstatus,Date currentTimeStamp,String anthmBndlId,List<String> rsrcIds) {
+		pdtRepo.updatePROVAFFLTNTRGRSwithBndlID(status,rcrdstatus,currentTimeStamp,anthmBndlId,rsrcIds);
+		entityManager.flush();
+		entityManager.clear();
+	}
+
+	public void updateAllorgRecordStatuswithBndlID(String statusInprogress, String statusOrgstatus,Date currentTimeStamp, String anthmBndlId ,List<String> rsrcIds){
+        pdtRepo.updateAllorgRecordStatuswithBndlID(statusInprogress,statusOrgstatus,currentTimeStamp,anthmBndlId,rsrcIds);
+        entityManager.flush();
+        entityManager.clear();
+      }
+
+}

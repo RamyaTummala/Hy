@@ -1,4 +1,4 @@
-package com.anthem.pdt.common.batch;
+okpackage com.anthem.pdt.common.batch;
 
 
 import java.util.Date;
@@ -455,4 +455,56 @@ public class QualificationEntity {
 	}
 	
 }
+package com.anthem.pdt.common.batch.dto;
 
+import static org.junit.Assert.*;
+import org.junit.Before;
+import org.junit.Test;
+
+public class QualificationEntityTest {
+
+    private QualificationEntity qualificationEntity;
+
+    @Before
+    public void setUp() {
+        qualificationEntity = new QualificationEntity();
+    }
+
+    @Test
+    public void testGetSetQualResourceId() {
+        String testId = "12345";
+        qualificationEntity.setQualResourceId(testId);
+        assertEquals("QualResourceId should match the set value", testId, qualificationEntity.getQualResourceId());
+    }
+
+    @Test
+    public void testGetSetSchlName() {
+        String testName = "Test School";
+        qualificationEntity.setSchlName(testName);
+        assertEquals("SchlName should match the set value", testName, qualificationEntity.getSchlName());
+    }
+
+    @Test
+    public void testSetQualResourceIdNull() {
+        qualificationEntity.setQualResourceId(null);
+        assertNull("QualResourceId should be null", qualificationEntity.getQualResourceId());
+    }
+
+    @Test
+    public void testSetSchlNameNull() {
+        qualificationEntity.setSchlName(null);
+        assertNull("SchlName should be null", qualificationEntity.getSchlName());
+    }
+
+    @Test
+    public void testSetSchlNameEmpty() {
+        qualificationEntity.setSchlName("");
+        assertEquals("SchlName should be empty", "", qualificationEntity.getSchlName());
+    }
+
+    @Test
+    public void testSetQualResourceIdEmpty() {
+        qualificationEntity.setQualResourceId("");
+        assertEquals("QualResourceId should be empty", "", qualificationEntity.getQualResourceId());
+    }
+}

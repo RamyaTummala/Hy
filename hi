@@ -413,4 +413,46 @@ public class CustomQualificationWriter implements ItemWriter<Organization> {
 				
 }		}
 	
+
+
+
+//
+
+
+package com.anthem.pdt.common.batch.dto;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+public class QualificationEntity {
 	
+	private String qualResourceId;
+	private String schlName;
+	private String provBoardCertificationIssueorg;
+	public String toString() {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        return gson.toJson(this);
+    }
+
+
+	public String getQualResourceId() {
+		return qualResourceId;
+	}
+	public void setQualResourceId(String qualResourceId) {
+		this.qualResourceId = qualResourceId;
+	}
+	public String getSchlName() {
+		return schlName;
+	}
+	public void setSchlName(String schlName) {
+		this.schlName = schlName;
+	}
+	public String getProvBoardCertificationIssueorg() {
+		return provBoardCertificationIssueorg;
+	}
+	public void setProvBoardCertificationIssueorg(String provBoardCertificationIssueorg) {
+		this.provBoardCertificationIssueorg = provBoardCertificationIssueorg;
+	}
+	
+}
+

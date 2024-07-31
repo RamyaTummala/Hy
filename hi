@@ -1,29 +1,25 @@
-package com.anthem.pdt.common.batch.dto;
+@Override
+	public void write(Chunk<? extends Organization> organizations) throws Exception {
+	    long startTime = System.currentTimeMillis();
+	    Date currentDate = new Date();
+	    SimpleDateFormat formatter = new SimpleDateFormat(Constants.DATE_FORMAT_dd_MMM_yyyy);
+	    String currentTimeStamp = formatter.format(currentDate);
+	    List<List<Organization>> chunks = splitIntoChunks(organizations, bundleSize);
+	    List<String> qualResourceIds = new ArrayList<>();
+	    for (List<Organization> chunk : chunks) {
+	        Bundle bundle = createBundle(chunk,qualResourceIds);
+	        IParser ip = CustomFhirContext.getInstance().newJsonParser().setPrettyPrint(true);
+	        logger.trace(ip.encodeResourceToString(bundle));
+	        // Invoke APIs and process DB updates for each chunk
+	        invokeAPIsAndProcessDBUpdates(currentDate ,qualResourceIds ,bundle, ip);
+			qualResourceIds.clear();
+	    }
+	}
 
-import static org.junit.Assert.*;
-import org.junit.Before;
-import org.junit.Test;
-
-public class QualificationEntityTest {
-
-    private QualificationEntity qualificationEntity;
-
-    @Before
-    public void setUp() {
-        qualificationEntity = new QualificationEntity();
-    }
-
-    @Test
-    public void testGetAndSetQualResourceId() {
-        String resourceId = "12345";
-        qualificationEntity.setQualResourceId(resourceId);
-        assertEquals(resourceId, qualificationEntity.getQualResourceId());
-    }
-
-    @Test
-    public void testGetAndSetSchlName() {
-        String schoolName = "Sample School";
-        qualificationEntity.setSchlName(schoolName);
-        assertEquals(schoolName, qualificationEntity.getSchlName());
-    }
-}
+	private List<List<Organization>> splitIntoChunks(Chunk<? extends Organization> list, int chunkSize) {
+	    List<List<Organization>> chunks = new ArrayList<>();
+	    for (int i = 0; i < list.size(); i += chunkSize) {
+	        chunks.add(new ArrayList<>(list.subList(i, Math.min(i + chunkSize, list.size()))));
+	    }
+	    return chunks;
+	}
